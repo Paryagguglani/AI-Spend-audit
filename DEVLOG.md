@@ -97,3 +97,34 @@
 - Integrate Anthropic API for dynamic summary generation
 - Add more sophisticated audit engine with real pricing data
 - Implement report viewing for shared URLs
+
+## Day 4 - Anthropic API Integration
+
+**Date:** 2026-05-11
+
+**Goals:**
+- Integrate Anthropic Claude API for generating dynamic, personalized summary paragraphs
+- Replace hardcoded summaries with AI-generated content
+- Add loading states for better UX during API calls
+
+**What I accomplished:**
+- Installed @anthropic-ai/sdk and configured API client
+- Created generateAISummary function with professional prompt engineering
+- Made calculateSavings async to handle API calls
+- Added loading state with disabled form submission and "Analyzing..." text
+- Implemented fallback summaries when API is unavailable
+- Enhanced prompt to include company details, spend data, and tool usage for personalized responses
+
+**Challenges faced:**
+- Handling async operations in form submission
+- Crafting effective prompts for financial advisory tone
+- Managing API errors gracefully with fallbacks
+- Ensuring summaries stay under word limits
+
+**Commits:**
+- Integrated Anthropic API for dynamic summaries with loading states
+
+**Next steps for Day 5:**
+- Implement CI/CD pipeline
+- Add unit tests for audit engine (minimum 5 tests)
+- Run Lighthouse performance audits

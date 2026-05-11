@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from './supabase'
+import Anthropic from '@anthropic-ai/sdk'
 
 interface FormData {
   company: string
@@ -16,13 +17,28 @@ interface Results {
 function App() {
   const [formData, setFormData] = useState<FormData>({ company: '', spend: '', tools: [] })
   const [results, setResults] = useState<Results | null>(null)
+  const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState('')
   const [auditId, setAuditId] = useState<string | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const savings = calculateSavings(formData)
-    setResults(savings)
+    setLoading(true)
+    try {
+      const savings = await calculateSavings(formData)
+      setResults(savings)
+    } catch (error) {
+      console.error('Error calculating savings:', error)
+      // Fallback to basic calculation
+      const basicSavings = {
+        savings: parseFloat(formData.spend) * 0.15,
+        percentage: 15,
+        summary: `By optimizing your AI tool usage, you can save $${(parseFloat(formData.spend) * 0.15).toFixed(0)} per month.`
+      }
+      setResults(basicSavings)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
@@ -64,7 +80,7 @@ function App() {
   return (
     <div className="min-h-screen bg-parchment text-espresso font-sans p-4">
       {!results ? (
-        <AuditForm onSubmit={handleSubmit} formData={formData} setFormData={setFormData} />
+        <AuditForm onSubmit={handleSubmit} formData={formData} setFormData={setFormData} loading={loading} />
       ) : (
         <Results 
           results={results} 
@@ -80,10 +96,11 @@ function App() {
   )
 }
 
-function AuditForm({ onSubmit, formData, setFormData }: {
+function AuditForm({ onSubmit, formData, setFormData, loading }: {
   onSubmit: (e: React.FormEvent) => void
   formData: FormData
   setFormData: React.Dispatch<React.SetStateAction<FormData>>
+  loading: boolean
 }) {
   const tools = ['OpenAI', 'Anthropic', 'Google AI', 'Hugging Face', 'Other']
 
@@ -137,9 +154,10 @@ function AuditForm({ onSubmit, formData, setFormData }: {
           </div>
           <button
             type="submit"
-            className="w-full bg-terracotta text-white py-2 rounded font-500 hover:opacity-90"
+            disabled={loading}
+            className="w-full bg-terracotta text-white py-2 rounded font-500 hover:opacity-90 disabled:opacity-50"
           >
-            Audit My Spend
+            {loading ? 'Analyzing...' : 'Audit My Spend'}
           </button>
         </form>
       </div>
@@ -248,21 +266,60 @@ function Results({ results, formData, email, setEmail, auditId, onEmailSubmit, o
   )
 }
 
-function calculateSavings(formData: FormData): Results {
+async function calculateSavings(formData: FormData): Promise<Results> {
   const spend = parseFloat(formData.spend) || 0
   const percentage = spend > 5000 ? 25 : spend > 1000 ? 20 : 15
   const savings = spend * (percentage / 100)
-  let summary = `By optimizing your AI tool usage and switching to cost-effective alternatives, you can save $${savings.toFixed(0)} per month.`
 
-  if (formData.tools.includes('OpenAI')) {
-    summary += ' Consider switching from OpenAI GPT-4 to Anthropic Claude for better pricing on high-volume usage.'
-  }
-  if (formData.tools.includes('Google AI')) {
-    summary += ' Google AI offers competitive rates for certain workloads.'
-  }
-  // Add more based on tools
+  // Generate AI-powered summary
+  const summary = await generateAISummary(formData, { savings, percentage })
 
   return { savings, percentage, summary }
+}
+
+async function generateAISummary(formData: FormData, results: { savings: number; percentage: number }): Promise<string> {
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  if (!apiKey || apiKey === 'your-anthropic-api-key') {
+    // Fallback to basic summary
+    let summary = `By optimizing your AI tool usage and switching to cost-effective alternatives, you can save $${results.savings.toFixed(0)} per month.`
+    if (formData.tools.includes('OpenAI')) {
+      summary += ' Consider switching from OpenAI GPT-4 to Anthropic Claude for better pricing on high-volume usage.'
+    }
+    return summary
+  }
+
+  const anthropic = new Anthropic({
+    apiKey: apiKey,
+  })
+
+  const prompt = `You are a financial advisor specializing in AI cost optimization. Write a compelling, professional summary paragraph for an AI spend audit report.
+
+Company: ${formData.company}
+Current monthly AI spend: $${formData.spend}
+Potential monthly savings: $${results.savings.toFixed(0)} (${results.percentage}% reduction)
+AI tools currently used: ${formData.tools.join(', ') || 'Various AI tools'}
+
+Write a persuasive paragraph highlighting the savings opportunity, the benefits of optimization, and encourage taking action. Keep it under 150 words, professional tone. Focus on the financial impact and strategic advantages.`
+
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-3-haiku-20240307',
+      max_tokens: 200,
+      system: 'You are an expert financial advisor helping startups optimize their AI spending.',
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+    })
+
+    return message.content[0].type === 'text' ? message.content[0].text : 'AI-generated summary unavailable.'
+  } catch (error) {
+    console.error('Error generating AI summary:', error)
+    // Fallback
+    return `By optimizing your AI tool usage and switching to cost-effective alternatives, you can save $${results.savings.toFixed(0)} per month.`
+  }
 }
 
 export default App
