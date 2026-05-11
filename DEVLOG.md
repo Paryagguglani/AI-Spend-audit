@@ -19,6 +19,7 @@
 
 **Challenges faced:**
 - Tailwind CSS initialization issues with npx, resolved by manual config file creation
+- PostCSS plugin compatibility issue with Tailwind v4, fixed by installing @tailwindcss/postcss and updating config
 - Adapting to the specified color scheme and design constraints
 
 **Commits:**
