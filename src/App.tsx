@@ -29,7 +29,7 @@ function App() {
       {!results ? (
         <AuditForm onSubmit={handleSubmit} formData={formData} setFormData={setFormData} />
       ) : (
-        <Results results={results} onReset={reset} />
+        <Results results={results} formData={formData} onReset={reset} />
       )}
     </div>
   )
@@ -102,25 +102,60 @@ function AuditForm({ onSubmit, formData, setFormData }: {
   )
 }
 
-function Results({ results, onReset }: { results: Results; onReset: () => void }) {
+function Results({ results, formData, onReset }: { results: Results; formData: FormData; onReset: () => void }) {
+  const currentSpend = parseFloat(formData.spend)
+  const optimizedSpend = currentSpend - results.savings
+  const currentWidth = 100
+  const optimizedWidth = (optimizedSpend / currentSpend) * 100
+
   return (
-    <div className="max-w-md mx-auto">
-      <h1 className="text-2xl font-500 mb-6 text-center">Audit Results</h1>
-      <div className="bg-cream border border-sand rounded-card p-6 shadow-sm space-y-4">
+    <div className="max-w-lg mx-auto">
+      <h1 className="text-3xl font-500 mb-8 text-center">Your AI Spend Audit Report</h1>
+      <div className="bg-cream border border-sand rounded-card p-8 shadow-sm space-y-6">
         <div className="text-center">
-          <div className="text-3xl font-500 text-forest">${results.savings.toFixed(0)}</div>
-          <div className="text-sm text-taupe">Monthly Savings</div>
+          <div className="text-5xl font-500 text-forest mb-2">${results.savings.toFixed(0)}</div>
+          <div className="text-lg text-taupe">Monthly Savings Potential</div>
+          <div className="text-terracotta font-500 text-xl">{results.percentage}% Reduction</div>
         </div>
-        <div className="text-center text-terracotta font-500">
-          {results.percentage}% reduction
+
+        <div className="space-y-4">
+          <h2 className="text-xl font-500">Spend Comparison</h2>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-500">Current Monthly Spend</span>
+              <span className="text-sm">${currentSpend.toFixed(0)}</span>
+            </div>
+            <div className="w-full bg-sand rounded-full h-6 overflow-hidden">
+              <div className="bg-terracotta h-6 rounded-full transition-all duration-500" style={{width: `${currentWidth}%`}}></div>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-500">Optimized Spend</span>
+              <span className="text-sm">${optimizedSpend.toFixed(0)}</span>
+            </div>
+            <div className="w-full bg-sand rounded-full h-6 overflow-hidden">
+              <div className="bg-forest h-6 rounded-full transition-all duration-500" style={{width: `${optimizedWidth}%`}}></div>
+            </div>
+          </div>
         </div>
-        <p className="text-sm text-taupe">{results.summary}</p>
-        <button
-          onClick={onReset}
-          className="w-full bg-terracotta text-white py-2 rounded font-500 hover:opacity-90"
-        >
-          Audit Another
-        </button>
+
+        <div className="border-t border-sand pt-6">
+          <h2 className="text-xl font-500 mb-3">Recommendation</h2>
+          <p className="text-taupe leading-relaxed">{results.summary}</p>
+        </div>
+
+        <div className="flex space-x-4">
+          <button
+            onClick={onReset}
+            className="flex-1 bg-terracotta text-white py-3 rounded font-500 hover:opacity-90 transition-opacity"
+          >
+            Audit Another Company
+          </button>
+          <button
+            className="flex-1 border border-terracotta text-terracotta py-3 rounded font-500 hover:bg-terracotta hover:text-white transition-colors"
+          >
+            Share Report
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -130,7 +165,16 @@ function calculateSavings(formData: FormData): Results {
   const spend = parseFloat(formData.spend) || 0
   const percentage = spend > 5000 ? 25 : spend > 1000 ? 20 : 15
   const savings = spend * (percentage / 100)
-  const summary = `By optimizing your AI tool usage and switching to cost-effective alternatives, you can save $${savings.toFixed(0)} per month.`
+  let summary = `By optimizing your AI tool usage and switching to cost-effective alternatives, you can save $${savings.toFixed(0)} per month.`
+
+  if (formData.tools.includes('OpenAI')) {
+    summary += ' Consider switching from OpenAI GPT-4 to Anthropic Claude for better pricing on high-volume usage.'
+  }
+  if (formData.tools.includes('Google AI')) {
+    summary += ' Google AI offers competitive rates for certain workloads.'
+  }
+  // Add more based on tools
+
   return { savings, percentage, summary }
 }
 
