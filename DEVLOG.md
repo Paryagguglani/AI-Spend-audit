@@ -67,3 +67,33 @@
 - Implement Supabase backend for data storage
 - Add email capture functionality
 - Create shareable URLs for audit reports
+
+## Day 3 - Backend Integration and Email Capture
+
+**Date:** 2026-05-11
+
+**Goals:**
+- Set up Supabase backend for storing audit data
+- Implement email capture on results page for lead generation
+- Create shareable URLs for audit reports
+
+**What I accomplished:**
+- Installed @supabase/supabase-js and set up client configuration
+- Added email capture form on results page after audit completion
+- Implemented audit data saving to Supabase (with fallback for demo)
+- Generated shareable URLs with unique audit IDs
+- Added copy-to-clipboard functionality for share links
+- Created database schema structure for audits table
+
+**Challenges faced:**
+- Setting up Supabase without a real project (used placeholder environment variables)
+- Handling async database operations with proper error handling
+- Designing the email capture flow to not interrupt the user experience
+
+**Commits:**
+- Added Supabase integration, email capture, and shareable URLs
+
+**Next steps for Day 4:**
+- Integrate Anthropic API for dynamic summary generation
+- Add more sophisticated audit engine with real pricing data
+- Implement report viewing for shared URLs

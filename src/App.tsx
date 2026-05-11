@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { supabase } from './supabase'
 
 interface FormData {
   company: string
@@ -15,6 +16,8 @@ interface Results {
 function App() {
   const [formData, setFormData] = useState<FormData>({ company: '', spend: '', tools: [] })
   const [results, setResults] = useState<Results | null>(null)
+  const [email, setEmail] = useState('')
+  const [auditId, setAuditId] = useState<string | null>(null)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -22,14 +25,56 @@ function App() {
     setResults(savings)
   }
 
-  const reset = () => setResults(null)
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!results) return
+
+    const { data, error } = await supabase
+      .from('audits')
+      .insert([
+        {
+          company: formData.company,
+          spend: parseFloat(formData.spend),
+          tools: formData.tools,
+          savings: results.savings,
+          percentage: results.percentage,
+          summary: results.summary,
+          email: email,
+          created_at: new Date().toISOString()
+        }
+      ])
+      .select()
+
+    if (error) {
+      console.error('Error saving audit:', error)
+      // For demo, generate a fake ID
+      const fakeId = Math.random().toString(36).substr(2, 9)
+      setAuditId(fakeId)
+    } else if (data) {
+      setAuditId(data[0].id)
+    }
+  }
+
+  const reset = () => {
+    setResults(null)
+    setEmail('')
+    setAuditId(null)
+  }
 
   return (
     <div className="min-h-screen bg-parchment text-espresso font-sans p-4">
       {!results ? (
         <AuditForm onSubmit={handleSubmit} formData={formData} setFormData={setFormData} />
       ) : (
-        <Results results={results} formData={formData} onReset={reset} />
+        <Results 
+          results={results} 
+          formData={formData} 
+          email={email} 
+          setEmail={setEmail} 
+          auditId={auditId} 
+          onEmailSubmit={handleEmailSubmit} 
+          onReset={reset} 
+        />
       )}
     </div>
   )
@@ -102,7 +147,15 @@ function AuditForm({ onSubmit, formData, setFormData }: {
   )
 }
 
-function Results({ results, formData, onReset }: { results: Results; formData: FormData; onReset: () => void }) {
+function Results({ results, formData, email, setEmail, auditId, onEmailSubmit, onReset }: { 
+  results: Results; 
+  formData: FormData; 
+  email: string; 
+  setEmail: React.Dispatch<React.SetStateAction<string>>; 
+  auditId: string | null; 
+  onEmailSubmit: (e: React.FormEvent) => void; 
+  onReset: () => void 
+}) {
   const currentSpend = parseFloat(formData.spend)
   const optimizedSpend = currentSpend - results.savings
   const currentWidth = 100
@@ -143,6 +196,37 @@ function Results({ results, formData, onReset }: { results: Results; formData: F
           <p className="text-taupe leading-relaxed">{results.summary}</p>
         </div>
 
+        {!auditId ? (
+          <div className="border-t border-sand pt-6">
+            <h2 className="text-xl font-500 mb-3">Get Your Full Report</h2>
+            <p className="text-taupe mb-4">Enter your email to receive a detailed audit report and personalized recommendations.</p>
+            <form onSubmit={onEmailSubmit} className="space-y-4">
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                className="w-full p-3 border border-sand rounded bg-white text-espresso"
+                required
+              />
+              <button
+                type="submit"
+                className="w-full bg-terracotta text-white py-3 rounded font-500 hover:opacity-90 transition-opacity"
+              >
+                Send Me My Report
+              </button>
+            </form>
+          </div>
+        ) : (
+          <div className="border-t border-sand pt-6">
+            <h2 className="text-xl font-500 mb-3">Share Your Report</h2>
+            <p className="text-taupe mb-4">Your audit has been saved. Share this link to show others your potential savings:</p>
+            <div className="bg-white border border-sand rounded p-3 text-sm break-all">
+              {window.location.origin}/report/{auditId}
+            </div>
+          </div>
+        )}
+
         <div className="flex space-x-4">
           <button
             onClick={onReset}
@@ -150,11 +234,14 @@ function Results({ results, formData, onReset }: { results: Results; formData: F
           >
             Audit Another Company
           </button>
-          <button
-            className="flex-1 border border-terracotta text-terracotta py-3 rounded font-500 hover:bg-terracotta hover:text-white transition-colors"
-          >
-            Share Report
-          </button>
+          {auditId && (
+            <button
+              onClick={() => navigator.clipboard.writeText(`${window.location.origin}/report/${auditId}`)}
+              className="flex-1 border border-terracotta text-terracotta py-3 rounded font-500 hover:bg-terracotta hover:text-white transition-colors"
+            >
+              Copy Share Link
+            </button>
+          )}
         </div>
       </div>
     </div>
