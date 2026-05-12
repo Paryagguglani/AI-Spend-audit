@@ -312,7 +312,10 @@ function ResultsView() {
   const [company, setCompany] = useState('')
   const [loading, setLoading] = useState(true)
   const [email, setEmail] = useState('')
+  const [role, setRole] = useState('')
+  const [honeypot, setHoneypot] = useState('')
   const [submitted, setSubmitted] = useState(false)
+  const [sending, setSending] = useState(false)
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -340,7 +343,28 @@ function ResultsView() {
 
   const handleLeadCapture = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSubmitted(true)
+    if (honeypot) return // Basic bot protection via honeypot
+    
+    setSending(true)
+    try {
+      await supabase
+        .from('audits')
+        .update({ 
+          lead_email: email, 
+          lead_role: role,
+          lead_captured_at: new Date().toISOString() 
+        })
+        .eq('id', id)
+
+      // Transactional email simulation (Resend / Postmark logic)
+      await new Promise(resolve => setTimeout(resolve, 800))
+      
+      setSubmitted(true)
+    } catch (err) {
+      console.error('Lead capture failed:', err)
+    } finally {
+      setSending(false)
+    }
   }
 
   if (loading) return <div className="text-center py-24">Loading your report...</div>
@@ -421,17 +445,64 @@ function ResultsView() {
                   We'll send a detailed 12-page PDF audit including competitor benchmarks and implementation guides.
                 </p>
                 <form onSubmit={handleLeadCapture} className="space-y-4">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="name@company.com"
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500"
-                    required
-                  />
-                  <button className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2">
-                    <Mail className="w-4 h-4" /> Send PDF Report
-                  </button>
+                  {/* Honeypot field for bot protection */}
+                  <div className="hidden" aria-hidden="true">
+                    <input 
+                      type="text" 
+                      value={honeypot} 
+                      onChange={e => setHoneypot(e.target.value)} 
+                      tabIndex={-1} 
+                      autoComplete="off" 
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Work Email</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      placeholder="name@company.com"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Your Role</label>
+                    <div className="relative">
+                      <select
+                        value={role}
+                        onChange={e => setRole(e.target.value)}
+                        className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-medium appearance-none focus:ring-2 focus:ring-indigo-500"
+                        required
+                      >
+                        <option value="">Select Role</option>
+                        <option value="cto">CTO / VP Engineering</option>
+                        <option value="cfo">CFO / Finance Lead</option>
+                        <option value="founder">Founder / CEO</option>
+                        <option value="manager">Engineering Manager</option>
+                        <option value="other">Other</option>
+                      </select>
+                      <ChevronDown className="absolute right-3 top-3 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button 
+                      disabled={sending}
+                      className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-indigo-100"
+                    >
+                      {sending ? 'Sending...' : (
+                        <>
+                          <Mail className="w-4 h-4" /> Send PDF Report
+                        </>
+                      )}
+                    </button>
+                    <p className="text-[10px] text-center text-slate-400 mt-4 leading-relaxed">
+                      By requesting this report, you agree to our terms. For high-savings cases, a Credex specialist will reach out with a custom implementation strategy.
+                    </p>
+                  </div>
                 </form>
               </>
             ) : (

@@ -34,6 +34,11 @@ A data-driven dashboard that visualizes savings and provides actionable recommen
 ## Data Flow
 1. User inputs tool data into the Form.
 2. `auditEngine.ts` processes data against hardcoded pricing rules.
-3. Anthropic API generates a personalized summary.
+3. Gemini API generates a personalized summary.
 4. Results are saved to Supabase and displayed to the user.
 5. User captures a shareable URL to distribute the report.
+
+## Security & Abuse Protection
+- **Environment Variables**: Managed via Vite `.env` and secured in Vercel for production.
+- **Honeypot Strategy**: A hidden field is added to lead capture forms to detect and block automated bots without impacting real users.
+- **Transactional Emails**: Simulated transactional flow (Resend-ready) for audit confirmation.
