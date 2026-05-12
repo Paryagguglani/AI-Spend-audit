@@ -25,6 +25,17 @@ export interface Optimization {
   details: string[]
 }
 
+export interface OptimizationRule {
+  condition: (entry: ToolEntry) => boolean
+  recommendation: string
+  details: string[]
+  savingsFactor: number
+}
+
+export interface ToolConfig {
+  optimizations: OptimizationRule[]
+}
+
 export interface Results {
   totalCurrentSpend: number
   totalOptimizedSpend: number
@@ -52,7 +63,7 @@ export const TOOL_PLANS: Record<string, string[]> = {
   'Midjourney': ['Basic', 'Standard', 'Pro', 'Mega']
 }
 
-export const TOOL_CONFIGS: Record<string, any> = {
+export const TOOL_CONFIGS: Record<string, ToolConfig> = {
   'ChatGPT': {
     optimizations: [
       {
@@ -128,7 +139,7 @@ export async function calculateSavings(formData: FormData): Promise<Results> {
 
     const config = TOOL_CONFIGS[entry.name]
     if (config) {
-      config.optimizations.forEach((opt: any) => {
+      config.optimizations.forEach((opt: OptimizationRule) => {
         if (opt.condition(entry)) {
           const potentialSavings = entry.cost * opt.savingsFactor
           const newCost = entry.cost - potentialSavings

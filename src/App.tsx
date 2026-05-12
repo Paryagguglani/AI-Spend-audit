@@ -177,7 +177,7 @@ function AuditFormView() {
             <div className="relative">
               <select
                 value={formData.primaryUseCase}
-                onChange={e => setFormData(prev => ({ ...prev, primaryUseCase: e.target.value as any }))}
+                onChange={e => setFormData(prev => ({ ...prev, primaryUseCase: e.target.value as FormData['primaryUseCase'] }))}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 transition-all appearance-none bg-white"
               >
                 <option value="coding">Software Development</option>
