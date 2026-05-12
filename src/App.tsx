@@ -86,7 +86,7 @@ function AuditFormView() {
     setLoading(true)
     try {
       const results = await calculateSavings(formData)
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('audits')
         .insert([{
           company: formData.company,
@@ -151,7 +151,7 @@ function AuditFormView() {
           </div>
 
           <div className="space-y-4">
-            {formData.tools.map((tool, index) => (
+            {formData.tools.map((tool) => (
               <div key={tool.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:border-indigo-200 transition-colors group relative">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="space-y-1.5">
@@ -244,7 +244,7 @@ function ResultsView() {
 
   useState(() => {
     const fetchResults = async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('audits')
         .select('*')
         .eq('id', id)
@@ -279,6 +279,10 @@ function ResultsView() {
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col md:flex-row gap-8 items-start mb-12">
         <div className="flex-1 bg-indigo-600 rounded-3xl p-8 text-white shadow-2xl shadow-indigo-200">
+          <div className="flex items-center gap-2 mb-4 opacity-80">
+            <CheckCircle2 className="w-5 h-5" />
+            <span className="font-bold tracking-tight uppercase text-sm">{company} Audit Report</span>
+          </div>
           <h2 className="text-indigo-100 font-semibold uppercase tracking-widest text-sm mb-2">Estimated Monthly Savings</h2>
           <div className="text-6xl font-black mb-4">${results.totalSavings.toFixed(0)}</div>
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 rounded-full text-sm font-bold backdrop-blur-sm">
