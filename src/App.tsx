@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Routes, Route, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from './supabase'
-import { calculateSavings, SUPPORTED_TOOLS, type FormData, type Results, type ToolEntry } from './utils/auditEngine'
-import { Plus, Trash2, Calculator, ArrowRight, Share2, Mail, CheckCircle2, AlertCircle, ChevronDown, Activity } from 'lucide-react'
+import { calculateSavings, SUPPORTED_TOOLS, TOOL_PLANS, type FormData, type Results, type ToolEntry } from './utils/auditEngine'
+import { Plus, Trash2, Calculator, ArrowRight, Share2, Mail, CheckCircle2, AlertCircle, ChevronDown, Activity, Users, Lightbulb } from 'lucide-react'
 
 function App() {
   return (
@@ -47,17 +47,26 @@ function App() {
 function AuditFormView() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState<FormData>({
-    company: '',
-    tools: [{ id: '1', name: 'OpenAI', plan: 'Plus', seats: 1, cost: 20, useCase: '' }]
+  const [formData, setFormData] = useState<FormData>(() => {
+    const saved = localStorage.getItem('audit_form_draft')
+    return saved ? JSON.parse(saved) : {
+      company: '',
+      teamSize: 10,
+      primaryUseCase: 'mixed',
+      tools: [{ id: '1', name: 'ChatGPT', plan: 'Plus', seats: 1, cost: 20, useCase: '' }]
+    }
   })
+
+  useEffect(() => {
+    localStorage.setItem('audit_form_draft', JSON.stringify(formData))
+  }, [formData])
 
   const addTool = () => {
     setFormData(prev => ({
       ...prev,
       tools: [...prev.tools, { 
         id: Math.random().toString(36).substr(2, 9), 
-        name: 'OpenAI', 
+        name: 'ChatGPT', 
         plan: 'Plus', 
         seats: 1, 
         cost: 0, 
@@ -75,10 +84,19 @@ function AuditFormView() {
   }
 
   const updateTool = (id: string, updates: Partial<ToolEntry>) => {
-    setFormData(prev => ({
-      ...prev,
-      tools: prev.tools.map(t => t.id === id ? { ...t, ...updates } : t)
-    }))
+    setFormData(prev => {
+      const newTools = prev.tools.map(t => {
+        if (t.id === id) {
+          const updated = { ...t, ...updates }
+          if (updates.name && updates.name !== t.name) {
+            updated.plan = TOOL_PLANS[updates.name as keyof typeof TOOL_PLANS][0]
+          }
+          return updated
+        }
+        return t
+      })
+      return { ...prev, tools: newTools }
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -96,10 +114,11 @@ function AuditFormView() {
         }])
         .select()
 
+      localStorage.removeItem('audit_form_draft')
+
       if (data) {
         navigate(`/report/${data[0].id}`)
       } else {
-        // Fallback for local dev without supabase
         const mockId = Math.random().toString(36).substr(2, 9)
         localStorage.setItem(`audit_${mockId}`, JSON.stringify({ formData, results }))
         navigate(`/report/${mockId}`)
@@ -123,16 +142,53 @@ function AuditFormView() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
-        <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
-          <label className="block text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wider">Company Name</label>
-          <input
-            type="text"
-            value={formData.company}
-            onChange={e => setFormData(prev => ({ ...prev, company: e.target.value }))}
-            placeholder="e.g. Acme Corp"
-            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-lg font-medium"
-            required
-          />
+        <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wider">Company Name</label>
+            <input
+              type="text"
+              value={formData.company}
+              onChange={e => setFormData(prev => ({ ...prev, company: e.target.value }))}
+              placeholder="e.g. Acme Corp"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 transition-all text-lg font-medium"
+              required
+            />
+          </div>
+          
+          <div>
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wider">
+              <Users className="w-4 h-4 text-indigo-600" />
+              Total Team Size
+            </label>
+            <input
+              type="number"
+              value={formData.teamSize}
+              onChange={e => setFormData(prev => ({ ...prev, teamSize: parseInt(e.target.value) || 0 }))}
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 transition-all"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wider">
+              <Lightbulb className="w-4 h-4 text-indigo-600" />
+              Primary Use Case
+            </label>
+            <div className="relative">
+              <select
+                value={formData.primaryUseCase}
+                onChange={e => setFormData(prev => ({ ...prev, primaryUseCase: e.target.value as any }))}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 transition-all appearance-none bg-white"
+              >
+                <option value="coding">Software Development</option>
+                <option value="writing">Content & Writing</option>
+                <option value="data">Data & Analysis</option>
+                <option value="research">Market Research</option>
+                <option value="mixed">Mixed Usage</option>
+              </select>
+              <ChevronDown className="absolute right-4 top-4 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
         </div>
 
         <div className="space-y-4">
@@ -153,18 +209,32 @@ function AuditFormView() {
           <div className="space-y-4">
             {formData.tools.map((tool) => (
               <div key={tool.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:border-indigo-200 transition-colors group relative">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase">Tool</label>
+                    <label className="text-xs font-bold text-slate-500 uppercase">Tool Name</label>
                     <div className="relative">
                       <select
                         value={tool.name}
                         onChange={e => updateTool(tool.id, { name: e.target.value })}
-                        className="w-full pl-3 pr-10 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm font-medium appearance-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full pl-3 pr-10 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm font-medium appearance-none focus:ring-2 focus:ring-indigo-500"
                       >
                         {SUPPORTED_TOOLS.map(t => <option key={t} value={t}>{t}</option>)}
                       </select>
-                      <ChevronDown className="absolute right-3 top-2.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <ChevronDown className="absolute right-3 top-3 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Plan Tier</label>
+                    <div className="relative">
+                      <select
+                        value={tool.plan}
+                        onChange={e => updateTool(tool.id, { plan: e.target.value })}
+                        className="w-full pl-3 pr-10 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm font-medium appearance-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        {TOOL_PLANS[tool.name as keyof typeof TOOL_PLANS]?.map(p => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-3 w-4 h-4 text-slate-400 pointer-events-none" />
                     </div>
                   </div>
 
@@ -174,30 +244,32 @@ function AuditFormView() {
                       type="number"
                       value={tool.cost}
                       onChange={e => updateTool(tool.id, { cost: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-indigo-500"
                       placeholder="0"
                     />
                   </div>
+                </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase">Seats</label>
+                    <label className="text-xs font-bold text-slate-500 uppercase">Total Seats</label>
                     <input
                       type="number"
                       value={tool.seats}
                       onChange={e => updateTool(tool.id, { seats: parseInt(e.target.value) || 1 })}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-indigo-500"
                       placeholder="1"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase">Primary Use Case</label>
+                    <label className="text-xs font-bold text-slate-500 uppercase">Sub-Use Case</label>
                     <input
                       type="text"
                       value={tool.useCase}
                       onChange={e => updateTool(tool.id, { useCase: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-indigo-500"
-                      placeholder="e.g. Dev productivity"
+                      className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-indigo-500"
+                      placeholder="e.g. Content writing, Debugging"
                     />
                   </div>
                 </div>
@@ -242,7 +314,7 @@ function ResultsView() {
   const [email, setEmail] = useState('')
   const [submitted, setSubmitted] = useState(false)
 
-  useState(() => {
+  useEffect(() => {
     const fetchResults = async () => {
       const { data } = await supabase
         .from('audits')
@@ -264,11 +336,10 @@ function ResultsView() {
       setLoading(false)
     }
     fetchResults()
-  })
+  }, [id])
 
   const handleLeadCapture = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Mock lead capture
     setSubmitted(true)
   }
 
@@ -405,4 +476,3 @@ function ResultsView() {
 }
 
 export default App
-
