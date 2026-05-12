@@ -2,10 +2,9 @@
 
 This document documents the prompt engineering used for the AI-generated audit summaries.
 
-## Core Prompt (Claude 3 Haiku)
+## Core Prompt (Google Gemini 1.5 Flash)
 
-**System Prompt**:
-> "You are an expert financial consultant for tech companies specializing in AI cost optimization."
+**Model**: `gemini-1.5-flash` (Optimized for speed and efficiency, perfect for a free-tier friendly implementation).
 
 **User Prompt Structure**:
 ```text
@@ -19,6 +18,6 @@ Provide a concise, executive-level summary of where the savings come from (focus
 ```
 
 ## Prompt Rationale
-- **Conciseness**: Limited to 120 words to ensure readability in the results dashboard.
+- **Model Choice**: Gemini 1.5 Flash is highly capable while staying within the free-tier limits of Google AI Studio.
+- **Conciseness**: Limited to 120 words for dashboard compatibility.
 - **Tone**: Professional/Executive to build trust with CFOs and Engineering Managers.
-- **Specificity**: Explicitly mentions "plan optimization" and "model selection" to align with the rules-based engine results.

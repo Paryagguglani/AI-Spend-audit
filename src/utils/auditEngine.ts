@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
 export interface ToolEntry {
   id: string
@@ -48,7 +48,7 @@ export const TOOL_CONFIGS: Record<string, any> = {
         condition: (entry: ToolEntry) => entry.plan === 'Plus' && entry.seats > 5,
         recommendation: 'Switch to Team plan',
         details: ['Better admin controls', 'Data privacy for teams', 'Shared workspace'],
-        savingsFactor: 0.1 // Just an example factor if moving to annual
+        savingsFactor: 0.1
       },
       {
         condition: (entry: ToolEntry) => entry.useCase.toLowerCase().includes('api') && entry.cost > 2000,
@@ -131,9 +131,8 @@ export async function calculateSavings(formData: FormData): Promise<Results> {
       })
     }
 
-    // Default optimization: Annual billing if no specific rule found
     if (optimizedCost === entry.cost && entry.cost > 100) {
-      optimizedCost = entry.cost * 0.85 // 15% discount
+      optimizedCost = entry.cost * 0.85
       bestRecommendation = 'Switch to Annual Billing'
       bestDetails = ['Immediate 15% cost reduction', 'Simplified accounting']
     }
@@ -155,7 +154,6 @@ export async function calculateSavings(formData: FormData): Promise<Results> {
   const totalSavings = totalCurrentSpend - totalOptimizedSpend
   const percentage = totalCurrentSpend > 0 ? (totalSavings / totalCurrentSpend) * 100 : 0
 
-  // Generate AI-powered summary
   const summary = await generateAISummary(formData, { savings: totalSavings, percentage })
 
   return {
@@ -169,33 +167,26 @@ export async function calculateSavings(formData: FormData): Promise<Results> {
 }
 
 export async function generateAISummary(formData: FormData, results: { savings: number; percentage: number }): Promise<string> {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
-  if (!apiKey || apiKey === 'your-anthropic-api-key') {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY
+  if (!apiKey || apiKey === 'your-gemini-api-key') {
     return `By optimizing your AI tool usage, you can save $${results.savings.toFixed(0)} per month. This represent a ${results.percentage.toFixed(1)}% reduction in your current spend.`
   }
 
-  const anthropic = new Anthropic({
-    apiKey: apiKey,
-    dangerouslyAllowBrowser: true // For client-side demo
-  })
+  const genAI = new GoogleGenerativeAI(apiKey)
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
 
   const prompt = `You are a financial advisor specializing in AI cost optimization. Write a compelling, professional summary for ${formData.company}.
   
-Current monthly AI spend: $${(results.savings / (results.percentage / 100)).toFixed(0)}
+Current monthly AI spend: $${(results.savings / (results.percentage / 100 || 1)).toFixed(0)}
 Potential monthly savings: $${results.savings.toFixed(0)} (${results.percentage.toFixed(1)}% reduction)
 Tools audited: ${formData.tools.map(t => t.name).join(', ')}
 
 Provide a concise, executive-level summary of where the savings come from (focusing on plan optimization and model selection) and why they should act now. Keep it under 120 words.`
 
   try {
-    const message = await anthropic.messages.create({
-      model: 'claude-3-haiku-20240307',
-      max_tokens: 250,
-      system: 'You are an expert financial consultant for tech companies.',
-      messages: [{ role: 'user', content: prompt }],
-    })
-
-    return message.content[0].type === 'text' ? message.content[0].text : 'AI-generated summary unavailable.'
+    const result = await model.generateContent(prompt)
+    const response = await result.response
+    return response.text() || 'AI-generated summary unavailable.'
   } catch (error) {
     console.error('Error generating AI summary:', error)
     return `By optimizing your AI tool usage, you can save $${results.savings.toFixed(0)} per month.`

@@ -9,7 +9,7 @@ Credex AI Spend Audit is a high-performance web application designed to help com
 - **Language**: TypeScript
 - **State Management**: React Hooks
 - **Backend/Database**: Supabase (PostgreSQL)
-- **AI Engine**: Anthropic Claude 3 Haiku (via `@anthropic-ai/sdk`)
+- **AI Engine**: Google Gemini 1.5 Flash (via `@google/generative-ai`)
 - **Icons**: Lucide React
 - **Routing**: React Router 7
 
