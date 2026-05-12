@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+import animatePlugin from 'tailwindcss-animate'
+
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
@@ -13,12 +15,13 @@ export default {
         forest: '#3B6D11',
       },
       fontFamily: {
-        sans: ['system-ui', 'sans-serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         'card': '14px',
+        '3xl': '24px',
       },
     },
   },
-  plugins: [],
+  plugins: [animatePlugin],
 }

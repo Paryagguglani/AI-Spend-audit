@@ -1,325 +1,403 @@
 import { useState } from 'react'
+import { Routes, Route, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from './supabase'
-import Anthropic from '@anthropic-ai/sdk'
-
-interface FormData {
-  company: string
-  spend: string
-  tools: string[]
-}
-
-interface Results {
-  savings: number
-  percentage: number
-  summary: string
-}
+import { calculateSavings, SUPPORTED_TOOLS, type FormData, type Results, type ToolEntry } from './utils/auditEngine'
+import { Plus, Trash2, Calculator, ArrowRight, Share2, Mail, CheckCircle2, AlertCircle, ChevronDown, Activity } from 'lucide-react'
 
 function App() {
-  const [formData, setFormData] = useState<FormData>({ company: '', spend: '', tools: [] })
-  const [results, setResults] = useState<Results | null>(null)
+  return (
+    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-purple-100">
+      <nav className="border-b border-slate-100 bg-white/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+              <Calculator className="w-5 h-5 text-white" />
+            </div>
+            <span className="font-bold text-xl tracking-tight text-slate-900">Credex <span className="text-indigo-600">Audit</span></span>
+          </div>
+          <div className="text-sm font-medium text-slate-500">
+            Professional AI Spend Analysis
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-6xl mx-auto px-6 py-12">
+        <Routes>
+          <Route path="/" element={<AuditFormView />} />
+          <Route path="/report/:id" element={<ResultsView />} />
+        </Routes>
+      </main>
+
+      <footer className="border-t border-slate-100 py-12 bg-slate-50 mt-12">
+        <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="text-slate-400 text-sm">
+            © 2026 Credex AI. All rights reserved.
+          </div>
+          <div className="flex gap-8 text-sm font-medium text-slate-600">
+            <a href="#" className="hover:text-indigo-600 transition-colors">Privacy</a>
+            <a href="#" className="hover:text-indigo-600 transition-colors">Terms</a>
+            <a href="#" className="hover:text-indigo-600 transition-colors">Support</a>
+          </div>
+        </div>
+      </footer>
+    </div>
+  )
+}
+
+function AuditFormView() {
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
-  const [email, setEmail] = useState('')
-  const [auditId, setAuditId] = useState<string | null>(null)
+  const [formData, setFormData] = useState<FormData>({
+    company: '',
+    tools: [{ id: '1', name: 'OpenAI', plan: 'Plus', seats: 1, cost: 20, useCase: '' }]
+  })
+
+  const addTool = () => {
+    setFormData(prev => ({
+      ...prev,
+      tools: [...prev.tools, { 
+        id: Math.random().toString(36).substr(2, 9), 
+        name: 'OpenAI', 
+        plan: 'Plus', 
+        seats: 1, 
+        cost: 0, 
+        useCase: '' 
+      }]
+    }))
+  }
+
+  const removeTool = (id: string) => {
+    if (formData.tools.length <= 1) return
+    setFormData(prev => ({
+      ...prev,
+      tools: prev.tools.filter(t => t.id !== id)
+    }))
+  }
+
+  const updateTool = (id: string, updates: Partial<ToolEntry>) => {
+    setFormData(prev => ({
+      ...prev,
+      tools: prev.tools.map(t => t.id === id ? { ...t, ...updates } : t)
+    }))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     try {
-      const savings = await calculateSavings(formData)
-      setResults(savings)
-    } catch (error) {
-      console.error('Error calculating savings:', error)
-      // Fallback to basic calculation
-      const basicSavings = {
-        savings: parseFloat(formData.spend) * 0.15,
-        percentage: 15,
-        summary: `By optimizing your AI tool usage, you can save $${(parseFloat(formData.spend) * 0.15).toFixed(0)} per month.`
+      const results = await calculateSavings(formData)
+      const { data, error } = await supabase
+        .from('audits')
+        .insert([{
+          company: formData.company,
+          tools: formData.tools,
+          results: results,
+          created_at: new Date().toISOString()
+        }])
+        .select()
+
+      if (data) {
+        navigate(`/report/${data[0].id}`)
+      } else {
+        // Fallback for local dev without supabase
+        const mockId = Math.random().toString(36).substr(2, 9)
+        localStorage.setItem(`audit_${mockId}`, JSON.stringify({ formData, results }))
+        navigate(`/report/${mockId}`)
       }
-      setResults(basicSavings)
+    } catch (error) {
+      console.error('Audit failed:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleEmailSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!results) return
-
-    const { data, error } = await supabase
-      .from('audits')
-      .insert([
-        {
-          company: formData.company,
-          spend: parseFloat(formData.spend),
-          tools: formData.tools,
-          savings: results.savings,
-          percentage: results.percentage,
-          summary: results.summary,
-          email: email,
-          created_at: new Date().toISOString()
-        }
-      ])
-      .select()
-
-    if (error) {
-      console.error('Error saving audit:', error)
-      // For demo, generate a fake ID
-      const fakeId = Math.random().toString(36).substr(2, 9)
-      setAuditId(fakeId)
-    } else if (data) {
-      setAuditId(data[0].id)
-    }
-  }
-
-  const reset = () => {
-    setResults(null)
-    setEmail('')
-    setAuditId(null)
-  }
-
   return (
-    <div className="min-h-screen bg-parchment text-espresso font-sans p-4">
-      {!results ? (
-        <AuditForm onSubmit={handleSubmit} formData={formData} setFormData={setFormData} loading={loading} />
-      ) : (
-        <Results 
-          results={results} 
-          formData={formData} 
-          email={email} 
-          setEmail={setEmail} 
-          auditId={auditId} 
-          onEmailSubmit={handleEmailSubmit} 
-          onReset={reset} 
-        />
-      )}
-    </div>
-  )
-}
-
-function AuditForm({ onSubmit, formData, setFormData, loading }: {
-  onSubmit: (e: React.FormEvent) => void
-  formData: FormData
-  setFormData: React.Dispatch<React.SetStateAction<FormData>>
-  loading: boolean
-}) {
-  const tools = ['OpenAI', 'Anthropic', 'Google AI', 'Hugging Face', 'Other']
-
-  const handleToolChange = (tool: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      tools: checked ? [...prev.tools, tool] : prev.tools.filter(t => t !== tool)
-    }))
-  }
-
-  return (
-    <div className="max-w-md mx-auto">
-      <h1 className="text-2xl font-500 mb-6 text-center">AI Spend Audit</h1>
-      <div className="bg-cream border border-sand rounded-card p-6 shadow-sm">
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-500 mb-1">Company Name</label>
-            <input
-              type="text"
-              value={formData.company}
-              onChange={e => setFormData(prev => ({ ...prev, company: e.target.value }))}
-              className="w-full p-2 border border-sand rounded bg-white text-espresso"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-500 mb-1">Monthly AI Spend ($)</label>
-            <input
-              type="number"
-              value={formData.spend}
-              onChange={e => setFormData(prev => ({ ...prev, spend: e.target.value }))}
-              className="w-full p-2 border border-sand rounded bg-white text-espresso"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-500 mb-2">AI Tools Used</label>
-            <div className="space-y-2">
-              {tools.map(tool => (
-                <label key={tool} className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.tools.includes(tool)}
-                    onChange={e => handleToolChange(tool, e.target.checked)}
-                    className="mr-2"
-                  />
-                  {tool}
-                </label>
-              ))}
-            </div>
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-terracotta text-white py-2 rounded font-500 hover:opacity-90 disabled:opacity-50"
-          >
-            {loading ? 'Analyzing...' : 'Audit My Spend'}
-          </button>
-        </form>
+    <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="text-center mb-12">
+        <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 mb-4">
+          Audit Your <span className="text-indigo-600">AI Spend</span>
+        </h1>
+        <p className="text-lg text-slate-600 max-w-xl mx-auto">
+          Identify over-provisioning and optimization opportunities across your AI stack in minutes.
+        </p>
       </div>
-    </div>
-  )
-}
 
-function Results({ results, formData, email, setEmail, auditId, onEmailSubmit, onReset }: { 
-  results: Results; 
-  formData: FormData; 
-  email: string; 
-  setEmail: React.Dispatch<React.SetStateAction<string>>; 
-  auditId: string | null; 
-  onEmailSubmit: (e: React.FormEvent) => void; 
-  onReset: () => void 
-}) {
-  const currentSpend = parseFloat(formData.spend)
-  const optimizedSpend = currentSpend - results.savings
-  const currentWidth = 100
-  const optimizedWidth = (optimizedSpend / currentSpend) * 100
-
-  return (
-    <div className="max-w-lg mx-auto">
-      <h1 className="text-3xl font-500 mb-8 text-center">Your AI Spend Audit Report</h1>
-      <div className="bg-cream border border-sand rounded-card p-8 shadow-sm space-y-6">
-        <div className="text-center">
-          <div className="text-5xl font-500 text-forest mb-2">${results.savings.toFixed(0)}</div>
-          <div className="text-lg text-taupe">Monthly Savings Potential</div>
-          <div className="text-terracotta font-500 text-xl">{results.percentage}% Reduction</div>
+      <form onSubmit={handleSubmit} className="space-y-8">
+        <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+          <label className="block text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wider">Company Name</label>
+          <input
+            type="text"
+            value={formData.company}
+            onChange={e => setFormData(prev => ({ ...prev, company: e.target.value }))}
+            placeholder="e.g. Acme Corp"
+            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-lg font-medium"
+            required
+          />
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-xl font-500">Spend Comparison</h2>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-500">Current Monthly Spend</span>
-              <span className="text-sm">${currentSpend.toFixed(0)}</span>
-            </div>
-            <div className="w-full bg-sand rounded-full h-6 overflow-hidden">
-              <div className="bg-terracotta h-6 rounded-full transition-all duration-500" style={{width: `${currentWidth}%`}}></div>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-500">Optimized Spend</span>
-              <span className="text-sm">${optimizedSpend.toFixed(0)}</span>
-            </div>
-            <div className="w-full bg-sand rounded-full h-6 overflow-hidden">
-              <div className="bg-forest h-6 rounded-full transition-all duration-500" style={{width: `${optimizedWidth}%`}}></div>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-sand pt-6">
-          <h2 className="text-xl font-500 mb-3">Recommendation</h2>
-          <p className="text-taupe leading-relaxed">{results.summary}</p>
-        </div>
-
-        {!auditId ? (
-          <div className="border-t border-sand pt-6">
-            <h2 className="text-xl font-500 mb-3">Get Your Full Report</h2>
-            <p className="text-taupe mb-4">Enter your email to receive a detailed audit report and personalized recommendations.</p>
-            <form onSubmit={onEmailSubmit} className="space-y-4">
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                className="w-full p-3 border border-sand rounded bg-white text-espresso"
-                required
-              />
-              <button
-                type="submit"
-                className="w-full bg-terracotta text-white py-3 rounded font-500 hover:opacity-90 transition-opacity"
-              >
-                Send Me My Report
-              </button>
-            </form>
-          </div>
-        ) : (
-          <div className="border-t border-sand pt-6">
-            <h2 className="text-xl font-500 mb-3">Share Your Report</h2>
-            <p className="text-taupe mb-4">Your audit has been saved. Share this link to show others your potential savings:</p>
-            <div className="bg-white border border-sand rounded p-3 text-sm break-all">
-              {window.location.origin}/report/{auditId}
-            </div>
-          </div>
-        )}
-
-        <div className="flex space-x-4">
-          <button
-            onClick={onReset}
-            className="flex-1 bg-terracotta text-white py-3 rounded font-500 hover:opacity-90 transition-opacity"
-          >
-            Audit Another Company
-          </button>
-          {auditId && (
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-indigo-600" />
+              AI Tool Stack
+            </h2>
             <button
-              onClick={() => navigator.clipboard.writeText(`${window.location.origin}/report/${auditId}`)}
-              className="flex-1 border border-terracotta text-terracotta py-3 rounded font-500 hover:bg-terracotta hover:text-white transition-colors"
+              type="button"
+              onClick={addTool}
+              className="flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
             >
-              Copy Share Link
+              <Plus className="w-4 h-4" /> Add Tool
             </button>
-          )}
+          </div>
+
+          <div className="space-y-4">
+            {formData.tools.map((tool, index) => (
+              <div key={tool.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:border-indigo-200 transition-colors group relative">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Tool</label>
+                    <div className="relative">
+                      <select
+                        value={tool.name}
+                        onChange={e => updateTool(tool.id, { name: e.target.value })}
+                        className="w-full pl-3 pr-10 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm font-medium appearance-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        {SUPPORTED_TOOLS.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-2.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Monthly Spend ($)</label>
+                    <input
+                      type="number"
+                      value={tool.cost}
+                      onChange={e => updateTool(tool.id, { cost: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-indigo-500"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Seats</label>
+                    <input
+                      type="number"
+                      value={tool.seats}
+                      onChange={e => updateTool(tool.id, { seats: parseInt(e.target.value) || 1 })}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-indigo-500"
+                      placeholder="1"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Primary Use Case</label>
+                    <input
+                      type="text"
+                      value={tool.useCase}
+                      onChange={e => updateTool(tool.id, { useCase: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-indigo-500"
+                      placeholder="e.g. Dev productivity"
+                    />
+                  </div>
+                </div>
+
+                {formData.tools.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeTool(tool.id)}
+                    className="absolute -right-3 -top-3 w-8 h-8 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:border-rose-200 shadow-sm opacity-0 group-hover:opacity-100 transition-all"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 hover:bg-slate-800 disabled:opacity-50 transition-all shadow-xl shadow-slate-200 group"
+        >
+          {loading ? 'Analyzing Your Stack...' : (
+            <>
+              Run Comprehensive Audit
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </>
+          )}
+        </button>
+      </form>
     </div>
   )
 }
 
-async function calculateSavings(formData: FormData): Promise<Results> {
-  const spend = parseFloat(formData.spend) || 0
-  const percentage = spend > 5000 ? 25 : spend > 1000 ? 20 : 15
-  const savings = spend * (percentage / 100)
+function ResultsView() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const [results, setResults] = useState<Results | null>(null)
+  const [company, setCompany] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [email, setEmail] = useState('')
+  const [submitted, setSubmitted] = useState(false)
 
-  // Generate AI-powered summary
-  const summary = await generateAISummary(formData, { savings, percentage })
+  useState(() => {
+    const fetchResults = async () => {
+      const { data, error } = await supabase
+        .from('audits')
+        .select('*')
+        .eq('id', id)
+        .single()
 
-  return { savings, percentage, summary }
-}
-
-async function generateAISummary(formData: FormData, results: { savings: number; percentage: number }): Promise<string> {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
-  if (!apiKey || apiKey === 'your-anthropic-api-key') {
-    // Fallback to basic summary
-    let summary = `By optimizing your AI tool usage and switching to cost-effective alternatives, you can save $${results.savings.toFixed(0)} per month.`
-    if (formData.tools.includes('OpenAI')) {
-      summary += ' Consider switching from OpenAI GPT-4 to Anthropic Claude for better pricing on high-volume usage.'
+      if (data) {
+        setResults(data.results)
+        setCompany(data.company)
+      } else {
+        const localData = localStorage.getItem(`audit_${id}`)
+        if (localData) {
+          const { formData, results } = JSON.parse(localData)
+          setResults(results)
+          setCompany(formData.company)
+        }
+      }
+      setLoading(false)
     }
-    return summary
-  }
-
-  const anthropic = new Anthropic({
-    apiKey: apiKey,
+    fetchResults()
   })
 
-  const prompt = `You are a financial advisor specializing in AI cost optimization. Write a compelling, professional summary paragraph for an AI spend audit report.
-
-Company: ${formData.company}
-Current monthly AI spend: $${formData.spend}
-Potential monthly savings: $${results.savings.toFixed(0)} (${results.percentage}% reduction)
-AI tools currently used: ${formData.tools.join(', ') || 'Various AI tools'}
-
-Write a persuasive paragraph highlighting the savings opportunity, the benefits of optimization, and encourage taking action. Keep it under 150 words, professional tone. Focus on the financial impact and strategic advantages.`
-
-  try {
-    const message = await anthropic.messages.create({
-      model: 'claude-3-haiku-20240307',
-      max_tokens: 200,
-      system: 'You are an expert financial advisor helping startups optimize their AI spending.',
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    })
-
-    return message.content[0].type === 'text' ? message.content[0].text : 'AI-generated summary unavailable.'
-  } catch (error) {
-    console.error('Error generating AI summary:', error)
-    // Fallback
-    return `By optimizing your AI tool usage and switching to cost-effective alternatives, you can save $${results.savings.toFixed(0)} per month.`
+  const handleLeadCapture = async (e: React.FormEvent) => {
+    e.preventDefault()
+    // Mock lead capture
+    setSubmitted(true)
   }
+
+  if (loading) return <div className="text-center py-24">Loading your report...</div>
+  if (!results) return <div className="text-center py-24">Report not found.</div>
+
+  return (
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex flex-col md:flex-row gap-8 items-start mb-12">
+        <div className="flex-1 bg-indigo-600 rounded-3xl p-8 text-white shadow-2xl shadow-indigo-200">
+          <h2 className="text-indigo-100 font-semibold uppercase tracking-widest text-sm mb-2">Estimated Monthly Savings</h2>
+          <div className="text-6xl font-black mb-4">${results.totalSavings.toFixed(0)}</div>
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 rounded-full text-sm font-bold backdrop-blur-sm">
+            <Activity className="w-4 h-4" />
+            {results.percentage.toFixed(1)}% Cost Reduction
+          </div>
+        </div>
+
+        <div className="w-full md:w-80 bg-slate-900 rounded-3xl p-8 text-white shadow-2xl shadow-slate-200">
+          <h3 className="text-slate-400 font-semibold text-sm mb-4">Current Monthly Spend</h3>
+          <div className="text-3xl font-bold mb-6">${results.totalCurrentSpend.toFixed(0)}</div>
+          <h3 className="text-slate-400 font-semibold text-sm mb-4">Optimized Spend</h3>
+          <div className="text-3xl font-bold text-emerald-400">${results.totalOptimizedSpend.toFixed(0)}</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-8">
+          <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+            <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
+              <AlertCircle className="w-6 h-6 text-indigo-600" />
+              Optimization Opportunities
+            </h2>
+            <div className="space-y-6">
+              {results.optimizations.map((opt, i) => (
+                <div key={i} className="flex gap-6 p-6 rounded-2xl bg-slate-50 border border-slate-100">
+                  <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center font-bold text-indigo-600 border border-slate-100 shrink-0">
+                    {opt.toolName[0]}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-bold text-lg text-slate-900">{opt.toolName}: {opt.recommendation}</h3>
+                      <span className="text-emerald-600 font-bold text-sm bg-emerald-50 px-2 py-1 rounded-md">
+                        -${(opt.currentCost - opt.optimizedCost).toFixed(0)}/mo
+                      </span>
+                    </div>
+                    <ul className="space-y-1.5">
+                      {opt.details.map((detail, j) => (
+                        <li key={j} className="text-sm text-slate-600 flex items-center gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                          {detail}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-indigo-50 rounded-3xl border border-indigo-100 p-8">
+            <h2 className="text-2xl font-bold text-indigo-900 mb-4">AI-Generated Strategy</h2>
+            <div className="prose prose-indigo max-w-none text-indigo-800 leading-relaxed font-medium">
+              {results.summary}
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-8">
+          <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm sticky top-24">
+            {!submitted ? (
+              <>
+                <h3 className="text-xl font-bold text-slate-900 mb-4">Get Full PDF Report</h3>
+                <p className="text-slate-600 text-sm mb-6">
+                  We'll send a detailed 12-page PDF audit including competitor benchmarks and implementation guides.
+                </p>
+                <form onSubmit={handleLeadCapture} className="space-y-4">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="name@company.com"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500"
+                    required
+                  />
+                  <button className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2">
+                    <Mail className="w-4 h-4" /> Send PDF Report
+                  </button>
+                </form>
+              </>
+            ) : (
+              <div className="text-center py-6">
+                <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">Report Sent!</h3>
+                <p className="text-slate-600 text-sm">Check your inbox for the full analysis.</p>
+              </div>
+            )}
+
+            <div className="mt-8 pt-8 border-t border-slate-100">
+              <h4 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <Share2 className="w-4 h-4" /> Share Audit
+              </h4>
+              <div className="bg-slate-50 p-3 rounded-xl text-xs font-mono text-slate-500 break-all border border-slate-100">
+                {window.location.href}
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href)
+                  alert('Link copied!')
+                }}
+                className="mt-3 w-full border border-slate-200 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors"
+              >
+                Copy Report Link
+              </button>
+            </div>
+
+            <button
+              onClick={() => navigate('/')}
+              className="mt-6 w-full text-indigo-600 font-bold text-sm hover:underline"
+            >
+              Start New Audit
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default App

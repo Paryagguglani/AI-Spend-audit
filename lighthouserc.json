@@ -1,0 +1,10 @@
+{
+  "ci": true,
+  "collect": {
+    "staticDistDir": "dist",
+    "url": ["http://localhost:4173"]
+  },
+  "assert": {
+    "preset": "lighthouse:recommended"
+  }
+}
