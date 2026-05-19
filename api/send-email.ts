@@ -126,9 +126,10 @@ export default async function handler(req: Request) {
         'Access-Control-Allow-Origin': '*',
       },
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Internal server error in send-email Edge Function:', error)
-    return new Response(JSON.stringify({ error: error.message || 'Internal server error' }), {
+    const err = error as Error
+    return new Response(JSON.stringify({ error: err.message || 'Internal server error' }), {
       status: 500,
       headers: {
         'Content-Type': 'application/json',
