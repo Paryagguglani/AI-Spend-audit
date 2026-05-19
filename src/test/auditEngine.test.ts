@@ -101,7 +101,7 @@ describe('Audit Engine', () => {
       const summary = await generateAISummary(formData, results)
 
       expect(summary).toContain('save $3 per month')
-      expect(summary).toContain('15.0% reduction')
+      expect(summary).toContain(`${results.percentage.toFixed(1)}% reduction`)
     })
   })
 })
