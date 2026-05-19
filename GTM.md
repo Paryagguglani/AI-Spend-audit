@@ -21,4 +21,4 @@
 1. **Awareness**: Social post or SEO link.
 2. **Value**: User completes audit in < 2 minutes.
 3. **Lead Capture**: User enters email to get the "Full 12-page PDF Report".
-4. **Sales**: Credex team follows up with personalized AI implementation consulting.
+4. **Sales**: The team follows up with personalized AI implementation consulting.

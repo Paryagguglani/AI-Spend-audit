@@ -1,4 +1,4 @@
-# Unit Economics - Credex AI Spend Audit
+# Unit Economics - Ai-Spend-Audit-app
 
 ## Business Model
 The tool is a **Lead Generation Magnet**. The goal is not direct monetization of the audit, but conversion into high-ticket AI consulting or implementation services.

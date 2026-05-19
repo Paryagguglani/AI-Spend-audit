@@ -1,4 +1,4 @@
-# DEVLOG - Credex AI Spend Audit
+# DEVLOG -Ai-Spend-Audit-app
 
 ## Day 1 - Project Ideation and Foundation
 **Date:** 2026-05-06

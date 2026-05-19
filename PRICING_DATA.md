@@ -1,6 +1,6 @@
 # Pricing Data & Optimization Rules
 
-This document outlines the hardcoded pricing data and logic used by the Credex Audit Engine.
+This document outlines the hardcoded pricing data and logic used by the Spend Audit Engine.
 
 ## Supported Tools
 

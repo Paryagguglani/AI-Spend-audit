@@ -1,7 +1,7 @@
-# Architecture - Credex AI Spend Audit
+# Architecture - Ai-Spend-Audit-app
 
 ## Overview
-Credex AI Spend Audit is a high-performance web application designed to help companies optimize their AI tool expenditures. It follows a modern, serverless architecture focusing on speed, scalability, and premium user experience.
+AI Spend Audit is a high-performance web application designed to help companies optimize their AI tool expenditures. It follows a modern, serverless architecture focusing on speed, scalability, and premium user experience.
 
 ## Tech Stack
 - **Frontend**: React 19 (Vite)
